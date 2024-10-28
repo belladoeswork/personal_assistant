@@ -1,0 +1,362 @@
+<!-- <!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Personal Assistant</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      input {
+        margin: 5px;
+      }
+      button {
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+      #lyrics {
+        margin-top: 20px;
+        margin-bottom: 20px;
+        white-space: pre-wrap;
+      }
+      #voiceOverButton {
+        margin-top: 10px;
+        margin-bottom: 10px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>My Personal Assistant</h1>
+    <button onclick="">Talk to me</button>
+    <button id="voiceOverButton" onclick="voiceOver()">Voice Over</button>
+
+    <h2>Your notifications</h2>
+
+    <script>
+      let generatedvoice = ''
+
+      async function xyz() {
+        const word1 = document.getElementById('word1').value
+
+        if (!word1 ) {
+          alert('xyz')
+          return
+        }
+
+        const response = await fetch('/generatenotif', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ word1 }),
+        })
+
+        const data = await response.json()
+        if (data.error) {
+          document.getElementById('lyrics').textContent = 'Error generating notiffications: ' + data.error
+        } else {
+          generatedvoice = data.lyrics
+          document.getElementById('lyrics').textContent = data.lyrics
+          document.getElementById('voiceOverButton').style.display = 'inline'
+        }
+      }
+
+      async function voiceOver() {
+        if (!generatedvoice) {
+          alert('Nothing to voice over!')
+          return
+        }
+
+        const response = await fetch('/voice-over', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ voice: generatedvoice }),
+        })
+
+        const data = await response.json()
+        if (data.audioUrl) {
+          const audioPlayer = document.createElement('audio')
+          audioPlayer.src = data.audioUrl
+          audioPlayer.controls = true
+          document.body.appendChild(audioPlayer)
+          audioPlayer.play()
+        }
+      }
+    </script>
+  </body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
+    <style>
+        /* Custom scrollbar styles */
+        #chat-history::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #chat-history::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        #chat-history::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        
+        #chat-history::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <h1 class="text-3xl font-bold mb-8 text-center">Your Personal Assistant</h1>
+        
+        <!-- Main interaction area -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <!-- Chat history -->
+            <div id="chat-history" class="h-96 overflow-y-auto mb-6 space-y-4">
+                <!-- Messages will be inserted here -->
+            </div>
+
+            <!-- Input area -->
+            <div class="flex space-x-4">
+                <input 
+                    type="text" 
+                    id="user-input" 
+                    class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    placeholder="Type your message..."
+                >
+                <button 
+                    id="send-button"
+                    class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                >
+                    Send
+                </button>
+                <button 
+                    id="voice-button"
+                    class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
+                >
+                    🎤
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <button class="quick-action bg-white p-4 rounded-lg shadow hover:shadow-md transition">
+                📧 Check Emails
+            </button>
+            <button class="quick-action bg-white p-4 rounded-lg shadow hover:shadow-md transition">
+                📅 Today's Schedule
+            </button>
+            <button class="quick-action bg-white p-4 rounded-lg shadow hover:shadow-md transition">
+                🌤️ Weather
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const chatHistory = document.getElementById('chat-history');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const voiceButton = document.getElementById('voice-button');
+        
+        // Speech Setup
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        const synth = window.speechSynthesis;
+        
+        // Helper Functions
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `p-4 rounded-lg ${isUser ? 'bg-blue-100 ml-12' : 'bg-gray-100 mr-12'}`;
+            
+            // Check if content is HTML or plain text
+            if (content.includes('<')) {
+                messageDiv.innerHTML = content;
+            } else {
+                messageDiv.textContent = content;
+            }
+            
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+        
+        function speakText(text) {
+            // Remove any HTML tags for speech
+            const cleanText = text.replace(/<[^>]*>/g, '');
+            const speech = new SpeechSynthesisUtterance(cleanText);
+            synth.speak(speech);
+        }
+        
+        // API Functions
+        async function processInput(text) {
+            try {
+                addMessage(text, true);
+                
+                const response = await axios.post('/process-input', { input: text });
+                const assistantResponse = response.data.response;
+                
+                addMessage(assistantResponse);
+                speakText(assistantResponse);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Sorry, there was an error processing your request.');
+            }
+        }
+        
+        async function getWeather() {
+            try {
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject);
+                });
+
+                const response = await axios.get('/get-weather', {
+                    params: {
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    }
+                });
+
+                const weather = response.data;
+                
+                const weatherHTML = `
+                    <div class="bg-white p-6 rounded-lg shadow-lg space-y-4">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-2xl font-bold">Current Weather</h3>
+                                <p class="text-gray-600">${weather.current.time}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-3xl font-bold">${weather.current.temperature}°C</p>
+                                <p class="text-gray-600">Feels like ${weather.current.feels_like}°C</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <span class="text-lg">${weather.current.weather_description}</span>
+                        </div>
+                        
+                        <div class="border-t pt-4">
+                            <h4 class="font-semibold mb-2">Today's Details</h4>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-gray-600">Precipitation</p>
+                                    <p>${weather.current.precipitation} mm</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600">Sunrise</p>
+                                    <p>${weather.daily.sunrise[0]}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600">Sunset</p>
+                                    <p>${weather.daily.sunset[0]}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border-t pt-4">
+                            <h4 class="font-semibold mb-2">Next 24 Hours</h4>
+                            <div class="flex overflow-x-auto space-x-4 pb-2">
+                                ${weather.hourly.times.map((time, i) => `
+                                    <div class="flex flex-col items-center min-w-[80px]">
+                                        <span class="text-sm">${time}</span>
+                                        <span class="text-lg font-semibold">${weather.hourly.temperature[i]}°C</span>
+                                        <span class="text-sm">${weather.hourly.precipitation_probability[i]}%</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                addMessage(weatherHTML);
+                
+                const weatherSpeech = `The current temperature is ${weather.current.temperature} degrees Celsius. 
+                                     The weather is ${weather.current.weather_description}.`;
+                speakText(weatherSpeech);
+
+            } catch (error) {
+                console.error('Error fetching weather:', error);
+                addMessage('Sorry, I couldn\'t fetch the weather information at this time.');
+            }
+        }
+        
+        // Event Listeners
+        sendButton.addEventListener('click', () => {
+            const text = userInput.value.trim();
+            if (text) {
+                processInput(text);
+                userInput.value = '';
+            }
+        });
+        
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendButton.click();
+            }
+        });
+        
+        voiceButton.addEventListener('click', () => {
+            recognition.start();
+            voiceButton.classList.add('bg-red-500');
+        });
+        
+        recognition.onresult = (event) => {
+            const text = event.results[0][0].transcript;
+            userInput.value = text;
+            voiceButton.classList.remove('bg-red-500');
+            sendButton.click();
+        };
+        
+        recognition.onend = () => {
+            voiceButton.classList.remove('bg-red-500');
+        };
+        
+        // Quick Actions Handler
+        document.querySelectorAll('.quick-action').forEach(button => {
+            button.addEventListener('click', async () => {
+                const action = button.textContent.trim();
+                
+                switch(action) {
+                    case '📧 Check Emails':
+                        await processInput('Get my recent unread emails');
+                        break;
+                    case '📅 Today\'s Schedule':
+                        await processInput('What\'s on my calendar for today?');
+                        break;
+                    case '🌤️ Weather':
+                        await getWeather();
+                        break;
+                }
+            });
+        });
+
+        // Initial greeting
+        addMessage('Hello! I\'m your personal assistant. How can I help you today?');
+    </script>
+</body>
+</html>
